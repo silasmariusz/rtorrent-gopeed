@@ -154,6 +154,7 @@ ExtraConfig _$ExtraConfigFromJson(Map<String, dynamic> json) =>
                 ?.map((e) => DownloadCategory.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             const [],
+        rt16Rtorrent: json['rt16'] == null ? false : rt16RtorrentFromJson(json['rt16']),
       )
       ..bt = ExtraConfigBt.fromJson(json['bt'] as Map<String, dynamic>)
       ..githubMirror = ExtraConfigGithubMirror.fromJson(json['githubMirror'] as Map<String, dynamic>?);
@@ -179,6 +180,7 @@ Map<String, dynamic> _$ExtraConfigToJson(ExtraConfig instance) => <String, dynam
   'downloadCategories': instance.downloadCategories.map((e) => e.toJson()).toList(),
   'bt': instance.bt.toJson(),
   'githubMirror': instance.githubMirror.toJson(),
+  'rt16': ?rt16RtorrentToJson(instance.rt16Rtorrent),
 };
 
 WindowStateConfig _$WindowStateConfigFromJson(Map<String, dynamic> json) => WindowStateConfig(

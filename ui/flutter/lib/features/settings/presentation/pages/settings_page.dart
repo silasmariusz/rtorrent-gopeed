@@ -28,6 +28,7 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/app_tooltip.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/responsive_menu_layout.dart';
+import '../../../../shared/widgets/rt16_bt_lock.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../util/log_util.dart';
 import '../../../../util/package_info.dart';
@@ -504,19 +505,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       onChanged: (value) => _mutateConfig((next) => next.autoStartTasks = value),
                     ),
                   ),
-                  SettingsItem(
-                    title: context.l10n.autoTorrentEnable,
-                    child: shad.Switch(
-                      value: config.autoTorrent.enable,
-                      onChanged: (value) => _mutateConfig((next) => next.autoTorrent.enable = value),
+                  // Rtorrent16: the shim sets autoTorrent itself while rtorrent16 takes the torrents
+                  Rt16BtLock(
+                    key: const ValueKey('rt16-auto-torrent-lock'),
+                    locked: config.extra.rt16Rtorrent,
+                    child: SettingsItem(
+                      title: context.l10n.autoTorrentEnable,
+                      child: shad.Switch(
+                        value: config.autoTorrent.enable,
+                        onChanged: (value) => _mutateConfig((next) => next.autoTorrent.enable = value),
+                      ),
                     ),
                   ),
                   if (config.autoTorrent.enable)
-                    SettingsItem(
-                      title: context.l10n.autoTorrentDeleteAfterDownload,
-                      child: shad.Switch(
-                        value: config.autoTorrent.deleteAfterDownload,
-                        onChanged: (value) => _mutateConfig((next) => next.autoTorrent.deleteAfterDownload = value),
+                    Rt16BtLock(
+                      locked: config.extra.rt16Rtorrent,
+                      child: SettingsItem(
+                        title: context.l10n.autoTorrentDeleteAfterDownload,
+                        child: shad.Switch(
+                          value: config.autoTorrent.deleteAfterDownload,
+                          onChanged: (value) => _mutateConfig((next) => next.autoTorrent.deleteAfterDownload = value),
+                        ),
                       ),
                     ),
                   SettingsItem(
@@ -612,71 +621,78 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
             _SettingsBlock(
+              key: const ValueKey('settings-bt-block'),
               title: 'BitTorrent',
-              child: _SettingsGroup(
-                children: [
-                  if (Util.isWindows())
+              // Rtorrent16: greyed out, not hidden, while rtorrent16 takes the torrents and magnets
+              child: Rt16BtLock(
+                key: const ValueKey('rt16-bt-lock'),
+                locked: config.extra.rt16Rtorrent,
+                child: _SettingsGroup(
+                  children: [
+                    if (Util.isWindows())
+                      SettingsItem(
+                        title: context.l10n.setAsDefaultBtClient,
+                        child: shad.Switch(
+                          value: config.extra.defaultBtClient,
+                          onChanged: (value) => unawaited(_setDefaultBtClient(value)),
+                        ),
+                      ),
                     SettingsItem(
-                      title: context.l10n.setAsDefaultBtClient,
+                      title: context.l10n.listenPort,
+                      child: _NumberSettingControl(
+                        fieldKey: const ValueKey('bt-listen-port-input'),
+                        controller: _btListenPortController,
+                        min: 0,
+                        max: 65535,
+                      ),
+                    ),
+                    SettingsItem(
+                      title: context.l10n.seedKeep,
                       child: shad.Switch(
-                        value: config.extra.defaultBtClient,
-                        onChanged: (value) => unawaited(_setDefaultBtClient(value)),
+                        value: config.protocolConfig.bt.seedKeep,
+                        onChanged: (value) => _mutateConfig((next) => next.protocolConfig.bt.seedKeep = value),
                       ),
                     ),
-                  SettingsItem(
-                    title: context.l10n.listenPort,
-                    child: _NumberSettingControl(
-                      fieldKey: const ValueKey('bt-listen-port-input'),
-                      controller: _btListenPortController,
-                      min: 0,
-                      max: 65535,
-                    ),
-                  ),
-                  SettingsItem(
-                    title: context.l10n.seedKeep,
-                    child: shad.Switch(
-                      value: config.protocolConfig.bt.seedKeep,
-                      onChanged: (value) => _mutateConfig((next) => next.protocolConfig.bt.seedKeep = value),
-                    ),
-                  ),
-                  if (!config.protocolConfig.bt.seedKeep) ...[
+                    if (!config.protocolConfig.bt.seedKeep) ...[
+                      SettingsItem(
+                        title: context.l10n.seedRatio,
+                        child: _NumberSettingControl(
+                          fieldKey: const ValueKey('bt-seed-ratio-input'),
+                          controller: _btSeedRatioController,
+                          min: 0,
+                          step: 0.1,
+                          decimalPlaces: 2,
+                        ),
+                      ),
+                      SettingsItem(
+                        title: context.l10n.seedTime,
+                        child: _NumberSettingControl(
+                          fieldKey: const ValueKey('bt-seed-time-input'),
+                          controller: _btSeedTimeController,
+                          min: 0,
+                          max: 100000000,
+                        ),
+                      ),
+                    ],
                     SettingsItem(
-                      title: context.l10n.seedRatio,
-                      child: _NumberSettingControl(
-                        fieldKey: const ValueKey('bt-seed-ratio-input'),
-                        controller: _btSeedRatioController,
-                        min: 0,
-                        step: 0.1,
-                        decimalPlaces: 2,
+                      title: context.l10n.subscribeTracker,
+                      child: _TrackerSubscriptionsControl(
+                        selected: config.extra.bt.trackerSubscribeUrls,
+                        autoUpdate: config.extra.bt.autoUpdateTrackers,
+                        lastUpdated: config.extra.bt.lastTrackerUpdateTime,
+                        onChanged: (urls) => _mutateConfig((next) => next.extra.bt.trackerSubscribeUrls = urls),
+                        onAutoUpdateChanged: (value) =>
+                            _mutateConfig((next) => next.extra.bt.autoUpdateTrackers = value),
+                        onUpdate: _updateTrackers,
                       ),
                     ),
                     SettingsItem(
-                      title: context.l10n.seedTime,
-                      child: _NumberSettingControl(
-                        fieldKey: const ValueKey('bt-seed-time-input'),
-                        controller: _btSeedTimeController,
-                        min: 0,
-                        max: 100000000,
-                      ),
+                      title: context.l10n.addTracker,
+                      subtitle: context.l10n.onePerLine,
+                      child: _TextSettingControl(controller: _customTrackersController, minLines: 7),
                     ),
                   ],
-                  SettingsItem(
-                    title: context.l10n.subscribeTracker,
-                    child: _TrackerSubscriptionsControl(
-                      selected: config.extra.bt.trackerSubscribeUrls,
-                      autoUpdate: config.extra.bt.autoUpdateTrackers,
-                      lastUpdated: config.extra.bt.lastTrackerUpdateTime,
-                      onChanged: (urls) => _mutateConfig((next) => next.extra.bt.trackerSubscribeUrls = urls),
-                      onAutoUpdateChanged: (value) => _mutateConfig((next) => next.extra.bt.autoUpdateTrackers = value),
-                      onUpdate: _updateTrackers,
-                    ),
-                  ),
-                  SettingsItem(
-                    title: context.l10n.addTracker,
-                    subtitle: context.l10n.onePerLine,
-                    child: _TextSettingControl(controller: _customTrackersController, minLines: 7),
-                  ),
-                ],
+                ),
               ),
             ),
             _SettingsBlock(

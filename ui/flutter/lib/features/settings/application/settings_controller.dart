@@ -39,7 +39,9 @@ class SettingsController extends AsyncNotifier<SettingsState> {
       ..bookmarks = latest.extra.bookmarks
       ..createHistory = latest.extra.createHistory
       ..runAsMenubarApp = latest.extra.runAsMenubarApp
-      ..analyticsClientId = latest.extra.analyticsClientId;
+      ..analyticsClientId = latest.extra.analyticsClientId
+      // Rtorrent16: the server's answer of now, so the BitTorrent lock follows rtorrent16 on every save
+      ..rt16Rtorrent = latest.extra.rt16Rtorrent;
     await ref.read(gopeedServiceProvider).putConfig(config);
     ref.read(appRuntimeControllerProvider.notifier).replaceDownloaderConfig(config);
     state = AsyncValue.data(SettingsState(config: config));

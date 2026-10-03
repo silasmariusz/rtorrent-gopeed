@@ -36,6 +36,7 @@ import '../../../../shared/widgets/app_path_picker_field.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/app_tooltip.dart';
 import '../../../../shared/widgets/app_toast.dart';
+import '../../../../shared/widgets/rt16_bt_lock.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../util/util.dart';
 import '../../application/pending_create_task.dart';
@@ -78,6 +79,8 @@ class _CreateTaskWindowPageState extends ConsumerState<CreateTaskWindowPage> {
   // null follows the global setting (_globalAdaptive) until the user toggles it
   bool? _adaptive;
   bool _globalAdaptive = false;
+  // Rtorrent16: the server's extra.rt16.rtorrent, true while the shim hands torrents and magnets to rtorrent16
+  bool _rt16Rtorrent = false;
   bool? _autoTorrent;
   bool? _deleteTorrentAfterDownload;
   bool? _autoExtract;
@@ -668,24 +671,31 @@ class _CreateTaskWindowPageState extends ConsumerState<CreateTaskWindowPage> {
                                 ),
                               ),
                               const SizedBox(height: 14),
-                              AppFormRow(
-                                direction: stacked ? Axis.vertical : Axis.horizontal,
-                                label: context.l10n.autoTorrentEnable,
-                                child: _OptionSwitch(
-                                  key: const ValueKey('create-task-auto-torrent'),
-                                  value: _autoTorrent ?? false,
-                                  onChanged: (value) => setState(() => _autoTorrent = value),
+                              // Rtorrent16: a downloaded .torrent goes to rtorrent16 through the shim's hook
+                              Rt16BtLock(
+                                locked: _rt16Rtorrent,
+                                child: AppFormRow(
+                                  direction: stacked ? Axis.vertical : Axis.horizontal,
+                                  label: context.l10n.autoTorrentEnable,
+                                  child: _OptionSwitch(
+                                    key: const ValueKey('create-task-auto-torrent'),
+                                    value: _autoTorrent ?? false,
+                                    onChanged: (value) => setState(() => _autoTorrent = value),
+                                  ),
                                 ),
                               ),
                               if (_autoTorrent == true) ...[
                                 const SizedBox(height: 12),
-                                AppFormRow(
-                                  direction: stacked ? Axis.vertical : Axis.horizontal,
-                                  label: context.l10n.autoTorrentDeleteAfterDownload,
-                                  child: _OptionSwitch(
-                                    key: const ValueKey('create-task-delete-torrent'),
-                                    value: _deleteTorrentAfterDownload ?? false,
-                                    onChanged: (value) => setState(() => _deleteTorrentAfterDownload = value),
+                                Rt16BtLock(
+                                  locked: _rt16Rtorrent,
+                                  child: AppFormRow(
+                                    direction: stacked ? Axis.vertical : Axis.horizontal,
+                                    label: context.l10n.autoTorrentDeleteAfterDownload,
+                                    child: _OptionSwitch(
+                                      key: const ValueKey('create-task-delete-torrent'),
+                                      value: _deleteTorrentAfterDownload ?? false,
+                                      onChanged: (value) => setState(() => _deleteTorrentAfterDownload = value),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -723,23 +733,28 @@ class _CreateTaskWindowPageState extends ConsumerState<CreateTaskWindowPage> {
                                 ),
                               ],
                             ] else ...[
-                              AppFormRow(
-                                direction: stacked ? Axis.vertical : Axis.horizontal,
-                                label: context.l10n.trackers,
-                                child: SizedBox(
-                                  height: 96,
-                                  child: AppTextField(
-                                    controller: _trackersController,
-                                    hintText: context.l10n.oneTrackerPerLine,
-                                    keyboardType: TextInputType.multiline,
-                                    textInputAction: TextInputAction.newline,
-                                    maxLines: null,
-                                    minLines: null,
-                                    expands: true,
-                                    textAlignVertical: TextAlignVertical.top,
-                                    filled: true,
-                                    border: Border.all(color: palette.border),
-                                    borderRadius: BorderRadius.circular(4),
+                              // Rtorrent16: the shim does not pass these trackers on to rtorrent16
+                              Rt16BtLock(
+                                key: const ValueKey('create-task-rt16-bt-lock'),
+                                locked: _rt16Rtorrent,
+                                child: AppFormRow(
+                                  direction: stacked ? Axis.vertical : Axis.horizontal,
+                                  label: context.l10n.trackers,
+                                  child: SizedBox(
+                                    height: 96,
+                                    child: AppTextField(
+                                      controller: _trackersController,
+                                      hintText: context.l10n.oneTrackerPerLine,
+                                      keyboardType: TextInputType.multiline,
+                                      textInputAction: TextInputAction.newline,
+                                      maxLines: null,
+                                      minLines: null,
+                                      expands: true,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      filled: true,
+                                      border: Border.all(color: palette.border),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -821,6 +836,7 @@ class _CreateTaskWindowPageState extends ConsumerState<CreateTaskWindowPage> {
           _asDefaultPath = false;
         }
         _globalAdaptive = config.protocolConfig.http.adaptive;
+        _rt16Rtorrent = config.extra.rt16Rtorrent;
         final connections = config.protocolConfig.http.connections;
         if (connections > 0 && (_connectionsController.text.isEmpty || _connectionsController.text == '16')) {
           _connectionsController.text = connections.toString();

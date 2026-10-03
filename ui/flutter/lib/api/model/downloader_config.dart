@@ -158,6 +158,13 @@ class ExtraConfig {
   ExtraConfigBt bt = ExtraConfigBt();
   ExtraConfigGithubMirror githubMirror = ExtraConfigGithubMirror();
 
+  /// Rtorrent16: true while the add-on's shim hands torrents and magnets to rtorrent16. The shim adds it to
+  /// GET /api/v1/config as extra.rt16.rtorrent and strips it from every write, so Gopeed never stores it. A
+  /// missing key, or anything but true, reads as false. toJson writes it back in the same shape, so a copy
+  /// made through toJson and fromJson keeps it.
+  @JsonKey(name: 'rt16', fromJson: rt16RtorrentFromJson, toJson: rt16RtorrentToJson, includeIfNull: false)
+  bool rt16Rtorrent;
+
   ExtraConfig({
     this.themeMode = '',
     this.themeColor = 'green',
@@ -176,6 +183,7 @@ class ExtraConfig {
     this.analyticsEnabled = true,
     this.analyticsClientId = '',
     this.downloadCategories = const [],
+    this.rt16Rtorrent = false,
   }) : windowState = windowState ?? WindowStateConfig();
 
   factory ExtraConfig.fromJson(Map<String, dynamic>? json) =>
@@ -183,6 +191,10 @@ class ExtraConfig {
 
   Map<String, dynamic> toJson() => _$ExtraConfigToJson(this);
 }
+
+bool rt16RtorrentFromJson(Object? json) => json is Map && json['rtorrent'] == true;
+
+Map<String, dynamic>? rt16RtorrentToJson(bool rtorrent) => rtorrent ? {'rtorrent': true} : null;
 
 @JsonSerializable()
 class WindowStateConfig {
